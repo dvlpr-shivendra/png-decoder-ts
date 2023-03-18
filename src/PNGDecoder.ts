@@ -1,4 +1,5 @@
 import Streamer from "./components/Streamer";
+import pako from "pako";
 
 enum ColorType {
     Grayscale = 0,
@@ -31,6 +32,8 @@ class PNGDecoder {
     private filterMethod = 0;
     private interlaceMethod: InterlaceMethod = InterlaceMethod.None;
 
+    private compressedData: Uint8Array;
+
     constructor(data: Uint8Array) {
         this.streamer = new Streamer(data);
 
@@ -49,6 +52,12 @@ class PNGDecoder {
 
     decodeBitmap() {
         this.decodeChunks();
+
+        const decompressedData = pako.deflate(this.compressedData);
+
+        if (!this.interlaceMethod) this.decodeBitmapSimple(decompressedData);
+        else throw new Error("Implement Adam7 PNG support.");
+
     }
 
     decodeChunks() {
@@ -64,6 +73,13 @@ class PNGDecoder {
         let chunkCrc = this.streamer.readInt32();
 
         if (chunkType === 'IHDR') this.processIHDR(chunkData);
+        else if (chunkType === 'IDAT') this.processIDAT(chunkData);
+        else if (chunkType === 'IEND') { }
+        else console.error(`Implement ${chunkType}`);
+    }
+
+    processIDAT(data: Uint8Array) {
+        this.compressedData = data;
     }
 
     processIHDR(data: Uint8Array) {
@@ -79,14 +95,38 @@ class PNGDecoder {
     }
 
 
-    public get channels(): number {
+    get channels(): number {
         if (this.colorType === ColorType.RGB) return 3;
         else if (this.colorType === ColorType.RGBA) return 4;
         else throw new Error(`Implement ${ColorType[this.colorType]}`);
     }
 
-    public get bytesPerPixel(): number {
+    get bytesPerPixel(): number {
         return (this.bitDepth + 7) / 8 * this.channels;
+    }
+
+    computeScanlineSizeForWidth(width: number) {
+        let size = width;
+        size *= this.channels;
+        size *= this.bitDepth;
+        size += 7;
+        size /= 8;
+        return Math.floor(size);
+    }
+
+    decodeBitmapSimple(data: Uint8Array) {
+        let scanlines = [];
+
+        const streamer = new Streamer(data);
+
+        for (let i = 0; i < this.height; i++) {
+            const filter: FilterType = streamer.read();
+            const scanlineSize = this.computeScanlineSizeForWidth(this.width);
+            scanlines.push({ filter, data: streamer.readBytes(scanlineSize) });
+        }
+
+        console.log(scanlines);
+
     }
 }
 
