@@ -12,6 +12,6 @@ fetch('http://localhost:5173/PNGs/1x1.png')
   .then(buffer => {
     const data = new Uint8Array(buffer);
     const decoder = new PNGDecoder(data);
-    decoder.processIHDR();
+    decoder.decodeBitmap();
   });
 </script>
