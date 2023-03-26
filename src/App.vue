@@ -13,7 +13,10 @@ import PNGDecoder from "./PNGDecoder";
 type CanvasRef = HTMLCanvasElement | null;
 const canvas: Ref<CanvasRef> = ref(null)
 
-fetch('http://localhost:5173/PNGs/1x2.png')
+const image = new URLSearchParams(window.location.search).get('image');
+
+
+fetch(`http://localhost:5173/PNGs/${image}.png`)
   .then(response => response.blob())
   .then(data => data.arrayBuffer())
   .then(buffer => {
