@@ -1,4 +1,4 @@
-import Streamer from "./components/Streamer";
+import Streamer from "./Streamer";
 import pako from "pako";
 
 enum ColorType {
