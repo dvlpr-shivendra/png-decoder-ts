@@ -59,7 +59,7 @@ class PNGDecoder {
 
     decodeBitmap() {
         this.decodeChunks();
-        
+
         const decompressedData = pako.inflate(this.compressedData);
 
         if (!this.interlaceMethod) this.decodeBitmapSimple(decompressedData);
@@ -86,7 +86,19 @@ class PNGDecoder {
     }
 
     processIDAT(data: Uint8Array) {
-        this.compressedData = data;
+        if (!this.compressedData) {
+            this.compressedData = data;
+            return;
+        }
+
+        const mergedData: Uint8Array = new Uint8Array(
+            this.compressedData.length + data.length
+        );
+
+        mergedData.set(this.compressedData, 0);
+        mergedData.set(data, this.compressedData.length);
+
+        this.compressedData = mergedData;
     }
 
     processIHDR(data: Uint8Array) {
