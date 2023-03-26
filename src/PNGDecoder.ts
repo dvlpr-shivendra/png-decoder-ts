@@ -195,6 +195,9 @@ class PNGDecoder {
 
 
     draw(canvas: HTMLCanvasElement) {
+        canvas.height = this.height;
+        canvas.width = this.width;
+
         const ctx = canvas.getContext("2d");
 
         if (!ctx) throw new Error("Could not get context");
