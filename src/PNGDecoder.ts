@@ -135,7 +135,7 @@ class PNGDecoder {
 
     unfilter() {
         const bytesPerScanline = this.scanlines[0].data.length;
-        const bytesPerCompletePixel = Math.ceil((this.bitDepth + 7) / 8) * this.channels;
+        const bytesPerCompletePixel = Math.floor((this.bitDepth + 7) / 8) * this.channels;
 
         for (let i = 0; i < this.scanlines.length; i++) {
             const scanline = this.scanlines[i];
