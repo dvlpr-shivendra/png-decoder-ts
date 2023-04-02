@@ -83,6 +83,7 @@ class PNGDecoder {
         else if (chunkType === 'IDAT') this.processIDAT(chunkData);
         else if (chunkType === 'tEXt') this.processEText(chunkData);
         else if (chunkType === 'zTXt') this.processZText(chunkData);
+        else if (chunkType === 'tIME') this.processTime(chunkData);
         else if (chunkType === 'IEND') { }
         else console.log(`TODO: Implement ${chunkType}`);
     }
@@ -116,6 +117,33 @@ class PNGDecoder {
         const textStreamer = new Streamer(pako.inflate(streamer.readBytes()))
 
         console.log(`${keyword}: ${textStreamer.readString()}`);
+    }
+
+    processTime(data: Uint8Array) {
+        const streamer = new Streamer(data);
+        const year = streamer.readInt16()
+        let month: number | string = streamer.readByte()
+        if (month < 10) {
+            month = `0${month}`
+        }
+        let day: number | string = streamer.readByte()
+        if (day < 10) {
+            day = `0${day}`
+        }
+        let hour: number | string = streamer.readByte()
+        if (hour < 10) {
+            hour = `0${hour}`
+        }
+        let minute: number | string = streamer.readByte()
+        if (minute < 10) {
+            minute = `0${minute}`
+        }
+        let second: number | string = streamer.readByte()
+        if (second < 10) {
+            second = `0${second}`
+        }
+        console.log('Last modified at: ' + `${hour}:${minute}:${second} ${day}/${month}/${year}`);
+
     }
 
     processIDAT(data: Uint8Array) {

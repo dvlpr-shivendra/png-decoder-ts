@@ -33,6 +33,10 @@ export default class Streamer {
         return this.data.length === 0;
     }
 
+    readInt16() {
+        return new DataView(this.readBytes(2).buffer).getUint16(0);
+    }
+
     readInt32() {
         return new DataView(this.readBytes(4).buffer).getInt32(0);
     }
