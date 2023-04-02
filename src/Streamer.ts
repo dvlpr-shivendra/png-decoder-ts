@@ -5,7 +5,7 @@ export default class Streamer {
         this.data = data;
     }
 
-    read() {
+    readByte() {
         if (this.data.length === 0) throw new Error("No more data");
 
         const value = this.data[0];
@@ -15,8 +15,12 @@ export default class Streamer {
         return value;
     }
 
-    readBytes(count: number) {
+    readBytes(count: number = -1) {
         if (this.data.length < count) throw new Error("Not enough data");
+
+        if (count === -1) {
+            count = this.data.length;
+        }
 
         const bytes = this.data.slice(0, count);
 
@@ -33,7 +37,10 @@ export default class Streamer {
         return new DataView(this.readBytes(4).buffer).getInt32(0);
     }
 
-    readString(bytesCount: number) {
+    readString(bytesCount: number = -1) {
+        if (bytesCount === -1) {
+            bytesCount = this.data.length;
+        }
         return new TextDecoder().decode(this.readBytes(bytesCount));
     }
 }

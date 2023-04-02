@@ -51,7 +51,7 @@ class PNGDecoder {
         const EXPECTED_HEADER = [137, 80, 78, 71, 13, 10, 26, 10];
 
         for (let i = 0; i < EXPECTED_HEADER.length; i++) {
-            if (this.streamer.read() !== EXPECTED_HEADER[i]) {
+            if (this.streamer.readByte() !== EXPECTED_HEADER[i]) {
                 throw new Error('Corrupted Header');
             }
         }
@@ -69,11 +69,11 @@ class PNGDecoder {
 
     decodeChunks() {
         while (!this.streamer.atEnd) {
-            this.processChunk();
+            this.processChunks();
         }
     }
 
-    processChunk() {
+    processChunks() {
         let chunkSize = this.streamer.readInt32();
         let chunkType = this.streamer.readString(4);
         let chunkData = this.streamer.readBytes(chunkSize);
@@ -81,8 +81,41 @@ class PNGDecoder {
 
         if (chunkType === 'IHDR') this.processIHDR(chunkData);
         else if (chunkType === 'IDAT') this.processIDAT(chunkData);
+        else if (chunkType === 'tEXt') this.processEText(chunkData);
+        else if (chunkType === 'zTXt') this.processZText(chunkData);
         else if (chunkType === 'IEND') { }
-        else console.error(`Implement ${chunkType}`);
+        else console.log(`TODO: Implement ${chunkType}`);
+    }
+
+    processEText(data: Uint8Array) {
+        const streamer = new Streamer(data);
+        let keyword = '';
+        while (true) {
+            const charCode: number = streamer.readByte()
+            if (charCode === 0) break;
+            keyword += String.fromCharCode(charCode)
+        }
+        console.log(`${keyword}: ${streamer.readString()}`);
+    }
+
+    processZText(data: Uint8Array) {
+        const streamer = new Streamer(data);
+        let keyword = '';
+        while (true) {
+            const charCode: number = streamer.readByte()
+            if (charCode === 0) break;
+            keyword += String.fromCharCode(charCode)
+        }
+
+        if (streamer.readByte() !== 0) {
+            console.error("Unsupported compression method used for zTXt");
+            return;
+        }
+
+
+        const textStreamer = new Streamer(pako.inflate(streamer.readBytes()))
+
+        console.log(`${keyword}: ${textStreamer.readString()}`);
     }
 
     processIDAT(data: Uint8Array) {
@@ -106,11 +139,11 @@ class PNGDecoder {
 
         this.width = streamer.readInt32();
         this.height = streamer.readInt32();
-        this.bitDepth = streamer.read();
-        this.colorType = streamer.read();
-        this.compressionMethod = streamer.read()
-        this.filterMethod = streamer.read();
-        this.interlaceMethod = streamer.read();
+        this.bitDepth = streamer.readByte();
+        this.colorType = streamer.readByte();
+        this.compressionMethod = streamer.readByte()
+        this.filterMethod = streamer.readByte();
+        this.interlaceMethod = streamer.readByte();
     }
 
 
@@ -137,7 +170,7 @@ class PNGDecoder {
         const streamer = new Streamer(data);
 
         for (let i = 0; i < this.height; i++) {
-            const filter: FilterType = streamer.read();
+            const filter: FilterType = streamer.readByte();
             const scanlineSize = this.computeScanlineSizeForWidth(this.width);
             this.scanlines.push({ filter, data: streamer.readBytes(scanlineSize) });
         }
@@ -206,9 +239,9 @@ class PNGDecoder {
             const streamer = new Streamer(scanline.data);
 
             for (let x = 0; x < this.width; x++) {
-                const r = streamer.read();
-                const g = streamer.read();
-                const b = streamer.read();
+                const r = streamer.readByte();
+                const g = streamer.readByte();
+                const b = streamer.readByte();
 
                 ctx.fillStyle = `rgb(${r},${g},${b})`;
                 ctx.fillRect(x, y, 1, 1);
