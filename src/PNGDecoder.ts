@@ -1,3 +1,4 @@
+import Image from "./Image";
 import Streamer from "./Streamer";
 import pako from "pako";
 
@@ -40,6 +41,8 @@ class PNGDecoder {
     private compressedData: Uint8Array;
 
     private scanlines: Scanline[] = [];
+
+    private image: Image;
 
     constructor(data: Uint8Array) {
         this.streamer = new Streamer(data);
@@ -203,6 +206,8 @@ class PNGDecoder {
             this.scanlines.push({ filter, data: streamer.readBytes(scanlineSize) });
         }
 
+        this.image = new Image(this.height, this.width);
+
         this.unfilter();
     }
 
@@ -212,69 +217,85 @@ class PNGDecoder {
 
         for (let i = 0; i < this.scanlines.length; i++) {
             const scanline = this.scanlines[i];
-            if (scanline.filter === FilterType.None) {
-                continue;
-            } else if (scanline.filter === FilterType.Sub) {
-                for (let j = bytesPerCompletePixel; j < bytesPerScanline; j++) {
-                    const left = scanline.data[j - bytesPerCompletePixel];
-                    scanline.data[j] += left;
-                }
-            } else if (scanline.filter === FilterType.Up) {
-                for (let j = 0; j < bytesPerScanline; j++) {
-                    const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
-                    scanline.data[j] += above;
-                }
-            } else if (scanline.filter === FilterType.Average) {
-                for (let j = 0; j < bytesPerScanline; j++) {
-                    const left = j < bytesPerCompletePixel ? 0 : scanline.data[j - bytesPerCompletePixel];
-                    const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
-                    const average = Math.floor((left + above) / 2);
-                    scanline.data[j] += average;
-                }
-            } else if (scanline.filter === FilterType.Paeth) {
-                for (let j = 0; j < bytesPerScanline; j++) {
-                    const left = j < bytesPerCompletePixel ? 0 : scanline.data[j - bytesPerCompletePixel];
-                    const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
-                    const upperLeft = j < bytesPerCompletePixel || i < 1 ? 0 : this.scanlines[i - 1].data[j - bytesPerCompletePixel];
-                    const predictor = left + above - upperLeft;
-                    const predictorLeft = Math.abs(predictor - left);
-                    const predictorAbove = Math.abs(predictor - above);
-                    const predictorUpperLeft = Math.abs(predictor - upperLeft);
-                    let nearest = 0;
-                    if (predictorLeft <= predictorAbove && predictorLeft <= predictorUpperLeft) {
-                        nearest = left;
-                    } else if (predictorAbove <= predictorUpperLeft) {
-                        nearest = above;
-                    } else {
-                        nearest = upperLeft;
+            switch (scanline.filter) {
+                case FilterType.None:
+                    break;
+                case FilterType.Sub:
+                    for (let j = bytesPerCompletePixel; j < bytesPerScanline; j++) {
+                        const left = scanline.data[j - bytesPerCompletePixel];
+                        scanline.data[j] += left;
                     }
-                    scanline.data[j] += nearest;
-                }
+                    break;
+                case FilterType.Up:
+                    for (let j = 0; j < bytesPerScanline; j++) {
+                        const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
+                        scanline.data[j] += above;
+                    }
+                    break;
+                case FilterType.Average:
+                    for (let j = 0; j < bytesPerScanline; j++) {
+                        const left = j < bytesPerCompletePixel ? 0 : scanline.data[j - bytesPerCompletePixel];
+                        const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
+                        const average = Math.floor((left + above) / 2);
+                        scanline.data[j] += average;
+                    }
+                    break;
+                case FilterType.Paeth:
+                    for (let j = 0; j < bytesPerScanline; j++) {
+                        const left = j < bytesPerCompletePixel ? 0 : scanline.data[j - bytesPerCompletePixel];
+                        const above = i > 0 ? this.scanlines[i - 1].data[j] : 0;
+                        const upperLeft = j < bytesPerCompletePixel || i < 1 ? 0 : this.scanlines[i - 1].data[j - bytesPerCompletePixel];
+                        const predictor = left + above - upperLeft;
+                        const predictorLeft = Math.abs(predictor - left);
+                        const predictorAbove = Math.abs(predictor - above);
+                        const predictorUpperLeft = Math.abs(predictor - upperLeft);
+                        let nearest = 0;
+                        if (predictorLeft <= predictorAbove && predictorLeft <= predictorUpperLeft) {
+                            nearest = left;
+                        } else if (predictorAbove <= predictorUpperLeft) {
+                            nearest = above;
+                        } else {
+                            nearest = upperLeft;
+                        }
+                        scanline.data[j] += nearest;
+                    }
+                    break;
+                default:
+                    break;
             }
+            this.image.addRow(scanline.data);
         }
     }
 
 
     draw(canvas: HTMLCanvasElement) {
-        canvas.height = this.height;
-        canvas.width = this.width;
+        if (this.image.height > canvas.height || this.image.width > canvas.width) {
+            let newHeight = canvas.height;
+            let newWidth = canvas.width;
+
+            if (this.image.height > newHeight) {
+                newWidth = Math.floor((this.image.width / this.image.height) * newHeight);
+            }
+
+            if (this.image.width > newHeight) {
+                newHeight = Math.floor((this.image.height / this.image.width) * newWidth);
+            }
+
+            this.image.resize(newHeight, newWidth);
+        }
 
         const ctx = canvas.getContext("2d");
 
         if (!ctx) throw new Error("Could not get context");
 
-        this.scanlines.forEach((scanline, y) => {
-            const streamer = new Streamer(scanline.data);
+        for (let y = 0; y < this.image.height; y++) {
+            for (let x = 0; x < this.image.width; x++) {
+                const pixel = this.image.getPixel(x, y);
 
-            for (let x = 0; x < this.width; x++) {
-                const r = streamer.readByte();
-                const g = streamer.readByte();
-                const b = streamer.readByte();
-
-                ctx.fillStyle = `rgb(${r},${g},${b})`;
+                ctx.fillStyle = `rgb(${pixel.r},${pixel.g},${pixel.b})`;
                 ctx.fillRect(x, y, 1, 1);
             }
-        });
+        }
     }
 
 }
