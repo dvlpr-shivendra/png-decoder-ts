@@ -2,7 +2,7 @@
   <div class="container">
     <h1>World's best PNG decoder</h1>
 
-    <canvas ref="canvas"></canvas>
+    <canvas ref="canvas" height="320" width="640"></canvas>
   </div>
 </template>
 
